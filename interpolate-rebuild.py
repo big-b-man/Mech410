@@ -16,40 +16,30 @@ precision = 0.1 #distance between points in final plot.
 with open(inputFile, newline='') as csvfile:
     reader = csv.reader(csvfile)
     #extracts first row of data which should be data column titles
-    titles = next(reader)
-    data = np.array([[float(x) for x in row[:3]] for row in reader])
+    titles = next(reader)#reads column titles from first row
+    data = np.array([[float(x) for x in row[:3]] for row in reader])#reads data from remaining rows
 
 uniqueX = np.sort(np.unique(data[:,0]))#list of unique X values in dataset
 uniqueXCount = uniqueX.shape[0]#number of unique X values in dataset
-dataPointNum = data.shape[0]#number of datapoints in set
 tempY = np.sort(np.unique(data[:,1]))
-yMin = tempY[0]
-yMax = tempY[-1]
+yMin = tempY[0]#minimum Y value in dataset
+yMax = tempY[-1]#maximum Y value in dataset
 
 del tempY#delete this as we don't need it anymore
 gc.collect()
 
-#delete these lines when program is completed
-print(uniqueX)
-print(uniqueXCount)
-print(dataPointNum)
-print(yMin)
-print(yMax)
-#delete above 5 lines
-
 #Array used to store points in the Y vs Z splines
 splineCtrPoints = []
 
-#parses data file and separates data by X value and stores it in the splineCtrPoints list
+#parses data file and separates data by X values and stores it in the splineCtrPoints list
 #spline Control Points is a 3D array, where dimension 0 is the unique X point, dimension 1 is the Y or Z column,
 #dimension 2 is a specific Y or Z value.
-
 for i in range(uniqueXCount):
     tempArray = []
     for j in range (data.shape[0]):
         if data[j][0] == uniqueX[i]:
             tempArray.append(data[j,1:])
-    tempArray  = np.array(sorted(tempArray, key=lambda x: x[0]))#ensures Y values are ordered so the CubicSpline command doesn't freak out
+    tempArray  = np.array(sorted(tempArray, key=lambda x: x[0]))#ensures Y values are ordered as CubicSpline() will fail if first input isn't sequential
     spline = CubicSpline(np.transpose(tempArray[:,0]),np.transpose(tempArray[:,1]))#creates cubic spline using Y and Z values in one of the uniqueX arrays
     tempY = np.arange(yMin, yMax+precision, precision)#creates Y values for spline interpolation given specified precision at start
     tempZ = spline(tempY)#creates Z values for associated Y values
@@ -57,9 +47,8 @@ for i in range(uniqueXCount):
     splineCtrPoints.append(tempArray)# Appeds the data to the splineCtrPoints array
 
 splineCtrPoints = np.array(splineCtrPoints)#convert to np array so we can create a for loop using it's shape
-#print(splineCtrPoints[0][0])
-#print(splineCtrPoints[:,0,1])
 
+#arrays used to store data points from second spline interpolation
 plotPointsX = []
 plotPointsY = []
 plotPointsZ = []
@@ -80,7 +69,7 @@ plotPointsZ = np.array(plotPointsZ).flatten()
 
 # Create meshgrid for surface plot
 X_grid, Y_grid = np.meshgrid(np.unique(plotPointsX), np.unique(plotPointsY))
-# Interpolating Z values to fit the meshgrid
+# Interpolating Z values to fit the meshgrid, want to reword this as a function of x,y at some point
 Z_grid = griddata((plotPointsX, plotPointsY), plotPointsZ, (X_grid, Y_grid), method='linear')
 
 # Plotting
