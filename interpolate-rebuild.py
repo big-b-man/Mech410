@@ -7,8 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 #program to extrapolate a data set and plots the results
-#limitations: for every unique X, the corresponding min and Max Y value must be the same.
-#exmaple: Valid data set:
+#Known bugs: Program fails if there is only one corresponding yz data point for a unique x point
 
 inputFile = "exampleData.csv" #Input parameter for CSV file being used for data
 precision = 0.1 #distance between points in final plot.
@@ -50,7 +49,7 @@ for i in range(uniqueXCount):
     for j in range (data.shape[0]):
         if data[j][0] == uniqueX[i]:
             tempArray.append(data[j,1:])
-    tempArray = np.sort(np.array(tempArray),axis=0)#makes sure data is a numpy array and sorts Y column in ascending order to avoid freaking out CubicSpline()
+    tempArray  = np.array(sorted(tempArray, key=lambda x: x[0]))#ensures Y values are ordered so the CubicSpline command doesn't freak out
     spline = CubicSpline(np.transpose(tempArray[:,0]),np.transpose(tempArray[:,1]))#creates cubic spline using Y and Z values in one of the uniqueX arrays
     tempY = np.arange(yMin, yMax+precision, precision)#creates Y values for spline interpolation given specified precision at start
     tempZ = spline(tempY)#creates Z values for associated Y values
