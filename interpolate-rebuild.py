@@ -1,6 +1,14 @@
 import numpy as np
 import csv
+import gc
 from scipy.interpolate import CubicSpline
+from scipy.interpolate import griddata
+import matplotlib.pyplot as plt
+from matplotlib import cm
+
+#program to extrapolate a data set and plots the results
+#limitations: for every unique X, the corresponding min and Max Y value must be the same.
+#exmaple: Valid data set:
 
 inputFile = "exampleData.csv" #Input parameter for CSV file being used for data
 precision = 0.1 #distance between points in final plot.
@@ -15,12 +23,20 @@ with open(inputFile, newline='') as csvfile:
 uniqueX = np.sort(np.unique(data[:,0]))#list of unique X values in dataset
 uniqueXCount = uniqueX.shape[0]#number of unique X values in dataset
 dataPointNum = data.shape[0]#number of datapoints in set
+tempY = np.sort(np.unique(data[:,1]))
+yMin = tempY[0]
+yMax = tempY[-1]
+
+del tempY#delete this as we don't need it anymore
+gc.collect()
 
 #delete these lines when program is completed
 print(uniqueX)
 print(uniqueXCount)
 print(dataPointNum)
-#delete above 3 lines
+print(yMin)
+print(yMax)
+#delete above 5 lines
 
 #Array used to store points in the Y vs Z splines
 splineCtrPoints = []
@@ -28,23 +44,68 @@ splineCtrPoints = []
 #parses data file and separates data by X value and stores it in the splineCtrPoints list
 #spline Control Points is a 3D array, where dimension 0 is the unique X point, dimension 1 is the Y or Z column,
 #dimension 2 is a specific Y or Z value.
+
 for i in range(uniqueXCount):
     tempArray = []
     for j in range (data.shape[0]):
         if data[j][0] == uniqueX[i]:
-            tempArray.append(data[j,:])
-    tempArray = np.array(tempArray)
-    splineCtrPoints.append(tempArray)
+            tempArray.append(data[j,1:])
+    tempArray = np.sort(np.array(tempArray),axis=0)#makes sure data is a numpy array and sorts Y column in ascending order to avoid freaking out CubicSpline()
+    spline = CubicSpline(np.transpose(tempArray[:,0]),np.transpose(tempArray[:,1]))#creates cubic spline using Y and Z values in one of the uniqueX arrays
+    tempY = np.arange(yMin, yMax+precision, precision)#creates Y values for spline interpolation given specified precision at start
+    tempZ = spline(tempY)#creates Z values for associated Y values
+    tempArray = np.transpose(np.array([tempY,tempZ]))# Stores interpolated Y and Z values in numpy array
+    splineCtrPoints.append(tempArray)# Appeds the data to the splineCtrPoints array
 
-print(splineCtrPoints[0])
-print("\n")
-print(splineCtrPoints[1])
-print("\n")
-print(splineCtrPoints[2])
-print("\n")
-print(splineCtrPoints[3])
-print("\n")
+splineCtrPoints = np.array(splineCtrPoints)#convert to np array so we can create a for loop using it's shape
+#print(splineCtrPoints[0][0])
+#print(splineCtrPoints[:,0,1])
 
-for i in range(uniqueXCount):
-    tempArray = np.sort(splineCtrPoints[i],0)
-    print(tempArray)
+plotPointsX = []
+plotPointsY = []
+plotPointsZ = []
+
+for i in range (splineCtrPoints.shape[1]):
+    spline = CubicSpline(uniqueX,splineCtrPoints[:,i,1])#creates cubic spline with X and Z values for given Y value of previous spline interpolation
+    tempX = np.arange(uniqueX[0],uniqueX[-1]+precision,precision)#Array of X values defined by precision variable
+    tempZ = spline(tempX)#Z values created from X values
+    tempY = np.repeat(splineCtrPoints[0][i][0],tempX.shape[0])#Array of Y values which is constant
+    plotPointsX.append(tempX)
+    plotPointsY.append(tempY)
+    plotPointsZ.append(tempZ)
+
+#flatten the arrays since the append method just adds the arrays together as a list of 1d arrays
+plotPointsX = np.array(plotPointsX).flatten()
+plotPointsY = np.array(plotPointsY).flatten()
+plotPointsZ = np.array(plotPointsZ).flatten()
+
+# Create meshgrid for surface plot
+X_grid, Y_grid = np.meshgrid(np.unique(plotPointsX), np.unique(plotPointsY))
+# Interpolating Z values to fit the meshgrid
+Z_grid = griddata((plotPointsX, plotPointsY), plotPointsZ, (X_grid, Y_grid), method='linear')
+
+# Plotting
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+
+#reverse color map
+orig_map=cm.jet
+reversed_map = orig_map.reversed()
+
+# Surface plot
+surf = ax.plot_surface(X_grid, Y_grid, Z_grid, cmap=reversed_map, linewidth=0, antialiased=False)
+
+# Set color range limits
+# surf.set_clim(-1.7340416, 4.5)
+
+# Labels
+ax.set_xlabel(titles[0])
+ax.set_ylabel(titles[1])
+ax.set_zlabel(titles[2])
+ax.view_init(elev=30, azim=45, roll=0)
+
+# Add a color bar which maps values to colors
+fig.colorbar(surf)
+
+# Show plot
+plt.show()
